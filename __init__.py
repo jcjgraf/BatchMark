@@ -39,16 +39,18 @@ def batchmarkend() -> None:
         min(start_index, end_index) : max(start_index, end_index) + 1
     ]
 
-    # If all images are maked, unmark them, else mark them
-    was_marked = False
+    unmarked = False  # If true, at least one image in selected_paths is not marked
 
+    # If all images are maked, unmark them, else mark them
     for path in selected_paths:
         try:
             api.mark._unmark(path)
         except ValueError:
-            was_marked = True
+            unmarked = True
             continue
 
-    if was_marked:
+    # By now all images are unmarked. Mark all agin in case ther was at least
+    # one unmarked image in the beginning
+    if unmarked:
         for path in selected_paths:
             api.mark._mark(path)
