@@ -16,6 +16,9 @@ library = MainWindow.instance._library
 
 @api.commands.register()
 def batchmarkstart() -> None:
+    """Start Batch Mark Selection.
+
+    Starts the selection at the currently selected image."""
     global start_paths, start_index
 
     start_paths = library.model().paths
@@ -25,6 +28,11 @@ def batchmarkstart() -> None:
 
 @api.commands.register()
 def batchmarkend() -> None:
+    """End Batch Mark Selection.
+
+    Ends the selection at the currently selected image. If at least one image in the
+    selection is unmarked, all images get markded. If all images are already marked,
+    they all get unmarked."""
     global start_paths, start_index
 
     end_paths = library.model().paths
