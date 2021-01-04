@@ -7,7 +7,6 @@ from vimiv.utils import log
 
 _logger = log.module_logger(__name__)
 
-
 class BatchMark:
     @api.objreg.register
     def __init__(self) -> None:
