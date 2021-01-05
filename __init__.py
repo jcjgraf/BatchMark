@@ -3,17 +3,21 @@
 from typing import Any
 
 from vimiv import api
-from vimiv.utils import log
+from vimiv.config import styles
+from vimiv.utils import log, wrap_style_span
 
 _logger = log.module_logger(__name__)
 
 
 class BatchMark:
+    class STATUS:
+        invalid = 0
+        idle = 1
+        started = 2
+
     @api.objreg.register
     def __init__(self) -> None:
-        self.start_index = None
-        self.end_index = None
-        self.paths = None
+        self._reset()
 
     @api.commands.register()
     def batchmark_start(self) -> None:
@@ -33,16 +37,14 @@ class BatchMark:
         selection is unmarked, all images get markded. If all images are already marked,
         they all get unmarked."""
 
-        end_paths = api.pathlist()
-
-        if self.paths is None or self.paths != end_paths:
-            self.paths = None
+        if self.get_status() in (self.STATUS.idle, self.STATUS.invalid):
+            self._reset()
             return
 
         current_path = api.current_path()
         self.end_index = self.paths.index(current_path)
 
-        selected_paths = self.paths[self._getLowerBound() : self._getUpperBound()]
+        selected_paths = self.paths[self._get_lower_bound() : self._get_upper_bound()]
 
         unmarked = False  # If true, at least one image in selected_paths is not marked
 
@@ -60,6 +62,8 @@ class BatchMark:
             for path in selected_paths:
                 api.mark._mark(path)
 
+        self._reset()
+
     @api.commands.register()
     def batchmark_toggle(self) -> None:
         """Starts and ends batchmark selection.
@@ -69,17 +73,41 @@ class BatchMark:
         is ended and if at least one image in the selection is unmarked, all images get
         markded. If all images are already marked, they all get unmarked."""
 
-        if self.paths is None or self.start_index is None:
+        if self.get_status() in (self.STATUS.idle, self.STATUS.invalid):
             self.batchmark_start()
 
-        elif self.end_index is None:
+        elif self.get_status() == self.STATUS.started:
             self.batchmark_end()
-            self.paths = None
+            self._reset()
 
-    def _getLowerBound(self):
+    def get_status(self):
+
+        if self.paths is None or self.start_index is None:
+            return self.STATUS.idle
+
+        paths = api.pathlist()
+
+        if paths != self.paths:
+            return self.STATUS.invalid
+
+        return self.STATUS.started
+
+    @api.status.module("{batchmark}")
+    def batchmark(self) -> str:
+        if self.get_status() == self.STATUS.started:
+            color = styles.get("base0d")
+            return wrap_style_span(f"color: {color}", "<b>+</b>")
+        return ""
+
+    def _reset(self):
+        self.start_index = None
+        self.end_index = None
+        self.paths = None
+
+    def _get_lower_bound(self):
         return min(self.start_index, self.end_index)
 
-    def _getUpperBound(self):
+    def _get_upper_bound(self):
         return max(self.start_index, self.end_index) + 1
 
 
