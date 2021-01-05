@@ -93,9 +93,16 @@ class BatchMark:
 
     @api.status.module("{batchmark}")
     def batchmark(self) -> str:
-        if self.get_status() == self.STATUS.started:
+        status = self.get_status()
+
+        if status == self.STATUS.started:
             color = styles.get("base0d")
             return wrap_style_span(f"color: {color}", "<b>+</b>")
+
+        if status == self.STATUS.invalid:
+            color = styles.get("base08")
+            return wrap_style_span(f"color: {color}", "<b>+</b>")
+
         return ""
 
     def _reset(self):
