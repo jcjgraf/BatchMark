@@ -80,6 +80,12 @@ class BatchMark:
             self.batchmark_end()
             self._reset()
 
+    @api.commands.register()
+    def batchmark_cancel(self) -> None:
+        """Cancels the batchmark selection if started."""
+
+        self._reset()
+
     def get_status(self):
 
         if self.paths is None or self.start_index is None:
