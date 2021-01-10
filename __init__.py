@@ -8,6 +8,7 @@ from vimiv.utils import log, wrap_style_span
 
 _logger = log.module_logger(__name__)
 
+
 class BatchMark:
     class STATUS:
         invalid = 0
@@ -78,6 +79,12 @@ class BatchMark:
         elif self.get_status() == self.STATUS.started:
             self.batchmark_end()
             self._reset()
+
+    @api.commands.register()
+    def batchmark_cancel(self) -> None:
+        """Cancels the batchmark selection if started."""
+
+        self._reset()
 
     def get_status(self):
 
