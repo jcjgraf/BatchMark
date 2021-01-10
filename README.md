@@ -9,8 +9,23 @@ Vimiv Batch Mark lets you easily mark contiguous images
 
 ### Usage
 - Select the first image you want to mark
-- Run `:batchmarkstart`
+- Run `:batchmark-start`
 - Select the last image you want to mark
-- Run `:batchmarkend`
+- Run `:batchmark-end`
 
 If at least one image in the range is not marked, all images get marked. If all images are already marked, the all get unmarked.
+
+### Commands
+
+- `batchmark-start`: Start Batch Mark selector at current image.
+
+- `batchmark-end`: End Batch Mark selection at current image. If the selection is valid the selected images are (un)marked.
+
+- `batchmark-toggle`: Starts/ends a Batch Mark selection depending if we have started on already. Binding this command to e.g. `V` in vimiv would result in similar functionality as Vims visual mode.
+
+- `batchmark-cancel`: Cancels an already started Batch Mark selection.
+
+### Status Bar Module
+Batch Mark provides the status bar module `{batchmark}`. It indicates if a Batch Mark has been started and if the current Batch Mark got invalid due to a change of path.
+
+For instruction on how to enable it please consult the [vimiv docs](https://karlch.github.io/vimiv-qt/documentation/configuration/statusbar.html).
