@@ -62,6 +62,8 @@ class BatchMark:
             for path in selected_paths:
                 api.mark._mark(path)
 
+        api.mark.markdone.emit()
+
         self._reset()
 
     @api.commands.register()
