@@ -46,23 +46,9 @@ class BatchMark:
 
         selected_paths = self.paths[self._get_lower_bound() : self._get_upper_bound()]
 
-        unmarked = False  # If true, at least one image in selected_paths is not marked
-
-        # If all images are maked, unmark them, else mark them
-        for path in selected_paths:
-            try:
-                api.mark._unmark(path)
-            except ValueError:
-                unmarked = True
-                continue
-
-        # By now all images are unmarked. Mark all agin in case ther was at least
-        # one unmarked image in the beginning
-        if unmarked:
-            for path in selected_paths:
-                api.mark._mark(path)
-
-        api.mark.markdone.emit()
+        all_marked = all(api.mark.is_marked(path) for path in selected_paths)
+        action = api.mark.Action.Unmark if all_marked else api.mark.Action.Mark
+        api.mark.mark(selected_paths, action)
 
         self._reset()
 
