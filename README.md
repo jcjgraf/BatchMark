@@ -1,5 +1,5 @@
 ## Vimiv Batch Mark
-> [vimiv-qt](https://raw.github.com/karlch/vimiv-qt) plugin for batch marking images
+> [vimiv](https://github.com/karlch/vimiv-qt) plugin for batch marking images
 
 Vimiv Batch Mark lets you easily mark contiguous images
 
