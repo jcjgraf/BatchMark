@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from PyQt5.QtCore import QObject
+
 from vimiv import api
 from vimiv.config import styles
 from vimiv.utils import log, wrap_style_span
@@ -9,93 +11,105 @@ from vimiv.utils import log, wrap_style_span
 _logger = log.module_logger(__name__)
 
 
-class BatchMark:
-    class STATUS:
-        invalid = 0
-        idle = 1
-        started = 2
-
+class BatchMark(QObject):
     @api.objreg.register
     def __init__(self) -> None:
+        super().__init__()
         self._reset()
+        self._action = self._reverse_action = None
 
-    @api.commands.register()
-    def batchmark_start(self) -> None:
-        """Start Batch Mark Selection.
+        api.signals.escape_pressed.connect(self.batchmark_cancel)
+        api.signals.event_handled.connect(self._batchmark_update)
+        api.working_directory.handler.loaded.connect(self.batchmark_cancel)
 
-        Starts the selection at the currently selected image."""
+        _logger.debug("Initialized BatchMark")
 
-        self.paths = api.pathlist()
-        current_path = api.current_path()
-        self.start_index = self.paths.index(current_path)
-
-    @api.commands.register()
-    def batchmark_end(self) -> None:
-        """End Batch Mark Selection.
-
-        Ends the selection at the currently selected image. If at least one image in the
-        selection is unmarked, all images get markded. If all images are already marked,
-        they all get unmarked."""
-
-        if self.get_status() in (self.STATUS.idle, self.STATUS.invalid):
-            self._reset()
+    def _batchmark_update(self):
+        """Update the marked paths according to the current position."""
+        if not self._is_started():
+            _logger.info("Need to start selection first")
             return
 
         current_path = api.current_path()
         self.end_index = self.paths.index(current_path)
 
-        selected_paths = self.paths[self._get_lower_bound() : self._get_upper_bound()]
+        selected_paths = set(
+            self.paths[
+                min(self.start_index, self.end_index) : max(
+                    self.start_index, self.end_index
+                )
+                + 1
+            ]
+        )
 
-        all_marked = all(api.mark.is_marked(path) for path in selected_paths)
-        action = api.mark.Action.Unmark if all_marked else api.mark.Action.Mark
-        api.mark.mark(selected_paths, action)
+        no_longer_marked = self._triggered - selected_paths
 
+        api.mark.mark(selected_paths, self._action)
+        api.mark.mark(no_longer_marked, self._reverse_action)
+
+        self._triggered = selected_paths
+
+    @api.commands.register()
+    def batchmark_start(self) -> None:
+        """Start Batch Mark Selection at the current image.
+
+        In case the current image is marked, we will unmark the batch."""
+
+        self.paths = api.pathlist()
+        self._prev_marked = set(api.mark.paths)
+        current_path = api.current_path()
+        if api.mark.is_marked(current_path):
+            self._action = api.mark.Action.Unmark
+            self._reverse_action = api.mark.Action.Mark
+        else:
+            self._action = api.mark.Action.Mark
+            self._reverse_action = api.mark.Action.Unmark
+        self.start_index = self.paths.index(current_path)
+
+        _logger.debug("New selection started")
+
+    @api.commands.register()
+    def batchmark_accept(self) -> None:
+        """Accept the changes of the current Batch Mark Selection."""
         self._reset()
+        _logger.debug("Selection accepted")
 
     @api.commands.register()
     def batchmark_toggle(self) -> None:
-        """Starts and ends batchmark selection.
+        """Starts and ends Batch Mark Selection.
 
-        If not batchmark selection has been started or the last one is no longer valid
-        (e.g. when the path was changed) a batch mark is started. Else the batch mark
-        is ended and if at least one image in the selection is unmarked, all images get
-        markded. If all images are already marked, they all get unmarked."""
+        In case we are currently in Batch Mark, accept the changes. Otherwise start
+        Batch Mark."""
 
-        if self.get_status() in (self.STATUS.idle, self.STATUS.invalid):
+        if self._is_started():
+            self.batchmark_accept()
+        else:
             self.batchmark_start()
-
-        elif self.get_status() == self.STATUS.started:
-            self.batchmark_end()
-            self._reset()
 
     @api.commands.register()
     def batchmark_cancel(self) -> None:
-        """Cancels the batchmark selection if started."""
+        """Cancels the Batch Mark Selection if started."""
+        if self._is_started():
+            to_mark = self._triggered & self._prev_marked
+            to_unmark = self._triggered - self._prev_marked
+            api.mark.mark(to_mark, api.mark.Action.Mark)
+            api.mark.mark(to_unmark, api.mark.Action.Unmark)
+            self._reset()
+            _logger.debug("Selection cancelled")
+        else:
+            _logger.debug("Nothing to cancel")
 
-        self._reset()
-
-    def get_status(self):
-
+    def _is_started(self):
+        """Indicate if a selection has been started."""
         if self.paths is None or self.start_index is None:
-            return self.STATUS.idle
+            return False
 
-        paths = api.pathlist()
-
-        if paths != self.paths:
-            return self.STATUS.invalid
-
-        return self.STATUS.started
+        return True
 
     @api.status.module("{batchmark}")
     def batchmark(self) -> str:
-        status = self.get_status()
-
-        if status == self.STATUS.started:
+        if self._is_started():
             color = styles.get("base0d")
-            return wrap_style_span(f"color: {color}", "<b>+</b>")
-
-        if status == self.STATUS.invalid:
-            color = styles.get("base08")
             return wrap_style_span(f"color: {color}", "<b>+</b>")
 
         return ""
@@ -104,12 +118,8 @@ class BatchMark:
         self.start_index = None
         self.end_index = None
         self.paths = None
-
-    def _get_lower_bound(self):
-        return min(self.start_index, self.end_index)
-
-    def _get_upper_bound(self):
-        return max(self.start_index, self.end_index) + 1
+        self._prev_marked = set()
+        self._triggered = set()
 
 
 def init(*_args: Any, **_kwargs: Any) -> None:
